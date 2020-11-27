@@ -261,6 +261,27 @@ In addition to bean definitions that contain information on how to create a spec
 
 PS: Bean Naming Conventions: 首字母小写 + 驼峰标示
 
+Aliasing a Bean outside the Bean Definition
+
+通过唯一 id 或多个 name 的方式，我们就有了多种方式指代同一个对象。这种功能在多模块写作的场景下就很有用了，你可以为不同的 module 提供更合理的命名。
+
+只在定义 bean 的地方提供别名功能是不够的，特别是在一些大型的项目中，配置文件往往分布在系统的各个子模块中，你可以通过 <alias/> 给外部引入的 bean 取别名:
+
+```xml
+<alias name="fromName" alias="toName"/>
+```
+
+通过上面的配置，我们可以将一个叫 fromName 的 bean 改名为 toName。
+
+For example, the configuration metadata for subsystem A may refer to a DataSource by the name of subsystemA-dataSource. The configuration metadata for subsystem B may refer to a DataSource by the name of subsystemB-dataSource. When composing the main application that uses both these subsystems, the main application refers to the DataSource by the name of myApp-dataSource. To have all three names refer to the same object, you can add the following alias definitions to the configuration metadata:
+
+```xml
+<alias name="myApp-dataSource" alias="subsystemA-dataSource"/>
+<alias name="myApp-dataSource" alias="subsystemB-dataSource"/>
+```
+
+Now each component and the main application can refer to the dataSource through a name that is unique and guaranteed not to clash with any other definition (effectively creating a namespace), yet they refer to the same bean.
+
 #### 练习
 
 通过 `,`, `;`, ` ` 给 bean 起别名
