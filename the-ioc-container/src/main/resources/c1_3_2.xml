@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+        https://www.springframework.org/schema/beans/spring-beans.xsd">
+
+    <!-- default constructor to get instance -->
+    <bean id="user132" class="c1_3_2.pojo.User132">
+        <property name="name" value="Jack"/>
+        <property name="age" value="30"/>
+    </bean>
+
+    <!-- static factory to get instance -->
+    <bean id="userFromStaticFactory"
+          class="c1_3_2.utils.StaticUserFactory"
+          factory-method="createInstance"/>
+
+    <!-- the factory bean, which contains a method called createInstance() -->
+    <bean id="instanceFactory" class="c1_3_2.utils.InstanceUserFactory">
+        <!-- inject any dependencies required by this locator bean -->
+    </bean>
+
+    <!-- the bean to be created via the factory bean -->
+    <bean id="userFromInstanceFactory"
+          factory-bean="instanceFactory"
+          factory-method="createInstance"/>
+
+    <!-- constructor to get instance, setup Spring env failed -->
+<!--    <bean id="userNoDefConstructor" class="c1_3_2.pojo.UserNoDefConstructor">-->
+<!--        <property name="name" value="Jack"/>-->
+<!--        <property name="age" value="2"/>-->
+<!--    </bean>-->
+</beans>

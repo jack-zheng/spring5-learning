@@ -282,6 +282,127 @@ For example, the configuration metadata for subsystem A may refer to a DataSourc
 
 Now each component and the main application can refer to the dataSource through a name that is unique and guaranteed not to clash with any other definition (effectively creating a namespace), yet they refer to the same bean.
 
-#### 练习
+##### 练习
 
 通过 `,`, `;`, ` ` 给 bean 起别名
+
+#### 1.3.2. Instantiating Beans
+
+Bean 定义可以看作是创建对象的配方，当容器创建对象时，会根据 bean 定义时指定的配置信息创建一个对应的实例。
+
+如果你使用 xml 配置文件，你可以在 <bean/> 元素的 class 属性中指定对象类型。class 属性一般是必填项。class 属性有一下两种使用方式：
+
+1. 典型用法，容器通过反射调用的方式调用对象的构造函数，效果上等同于 new 关键字
+2. 容器通过调用工厂方法生成对象
+
+PS: **内部类** 你可以通过一下方式为一个内部静态类配置 bean 定义。在 com.example 包下有名为 SomeThing 的类，在这个类中有一个名为 OtherThing 的内部静态类，那么你可以把对应 class 属性设置为 `com.example.SomeThing$OtherThing` $ 符号起到分隔外部类和内部静态类的作用
+
+##### Instantiation with a Constructor
+
+Spring 可以很好的支持通过构造函数的方式创建对象，bean 无需任何特殊配置，只需要有一个默认的构造函数即可。
+
+Spring IoC 容器可以很好的管理 bean, 即便是一些非典型的用法。大多是 Spring 用户会更倾向于给 JavaBean 提供一个无参构造函数，然后通过 getter/setter 配置容器信息。你也可以在容器中配置一些非典型的 class, 比如老式的 pool 链接信息。
+
+在 xml 配置文件中配置 class 的例子如下：
+
+```xml
+<bean id="exampleBean" class="examples.ExampleBean"/>
+
+<bean name="anotherExample" class="examples.ExampleBeanTwo"/>
+```
+
+##### Instantiation with a Static Factory Method
+
+当使用静态工厂方法创建对象的时候，你需要把 class 属性指向对应的工厂类，factory-method 属性指向对应的创建方法。这种用法和静态工厂类相类似。
+
+示例如下，bean 定义中 class 配置没有指定返回对象的类型而是指定了对象的工厂方法。`createInstance()` 是工厂中产生对象的方法。
+
+```xml
+<bean id="clientService"
+    class="examples.ClientService"
+    factory-method="createInstance"/>
+```
+
+```java
+public class ClientService {
+    private static ClientService clientService = new ClientService();
+    private ClientService() {}
+
+    public static ClientService createInstance() {
+        return clientService;
+    }
+}
+```
+
+##### Instantiation by Using an Instance Factory Method
+
+如果想要通过实体工厂类生成对象，做法和静态工厂类似，让 class 属性留空，在 factory-bean 属性里面设置工厂 class 的 bean, 然后在 factory-method 属性里写入需要调用的方法名称。
+
+```xml
+<!-- the factory bean, which contains a method called createInstance() -->
+<bean id="serviceLocator" class="examples.DefaultServiceLocator">
+    <!-- inject any dependencies required by this locator bean -->
+</bean>
+
+<!-- the bean to be created via the factory bean -->
+<bean id="clientService"
+    factory-bean="serviceLocator"
+    factory-method="createClientServiceInstance"/>
+```
+
+```java
+public class DefaultServiceLocator {
+
+    private static ClientService clientService = new ClientServiceImpl();
+
+    public ClientService createClientServiceInstance() {
+        return clientService;
+    }
+}
+```
+
+一个工厂类可以有多个工厂方法
+
+```xml
+<bean id="serviceLocator" class="examples.DefaultServiceLocator">
+    <!-- inject any dependencies required by this locator bean -->
+</bean>
+
+<bean id="clientService"
+    factory-bean="serviceLocator"
+    factory-method="createClientServiceInstance"/>
+
+<bean id="accountService"
+    factory-bean="serviceLocator"
+    factory-method="createAccountServiceInstance"/>
+```
+
+```java
+public class DefaultServiceLocator {
+
+    private static ClientService clientService = new ClientServiceImpl();
+
+    private static AccountService accountService = new AccountServiceImpl();
+
+    public ClientService createClientServiceInstance() {
+        return clientService;
+    }
+
+    public AccountService createAccountServiceInstance() {
+        return accountService;
+    }
+}
+```
+
+##### Determining a Bean’s Runtime Type
+
+The runtime type of a specific bean is non-trivial to determine. A specified class in the bean metadata definition is just an initial class reference, potentially combined with a declared factory method or being a FactoryBean class which may lead to a different runtime type of the bean, or not being set at all in case of an instance-level factory method (which is resolved via the specified factory-bean name instead). Additionally, AOP proxying may wrap a bean instance with an interface-based proxy with limited exposure of the target bean’s actual type (just its implemented interfaces).
+
+The recommended way to find out about the actual runtime type of a particular bean is a BeanFactory.getType call for the specified bean name. This takes all of the above cases into account and returns the type of object that a BeanFactory.getBean call is going to return for the same bean name.
+
+##### 练习
+
+1. xml 调用构造函数创建对象
+2. xml 调用静态工厂创建对象
+3. xml 调用实体工厂创建对象
+4. Bean 没有无参构造函数 - 创建失败
