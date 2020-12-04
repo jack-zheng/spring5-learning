@@ -406,3 +406,159 @@ The recommended way to find out about the actual runtime type of a particular be
 2. xml 调用静态工厂创建对象
 3. xml 调用实体工厂创建对象
 4. Bean 没有无参构造函数 - 创建失败
+
+### 1.4 Dependencies
+
+总结：这里的 dependencies 讲的其实是 bean 和 bean 之间的关系，比如一个 bean 定义时内部需要另一些 bean 做成员变量，在这种情况下需要怎么处理。
+
+企业级应用都由多个 bean 组成，这个章节我们将想你展示如何让应用中的 bean 协同合作。
+
+#### 1.4.1. Dependency Injection
+
+依赖注入是通过带参构造函数，工厂方法参数，属性 setter 方法等为 bean 设置值的过程。容器会根据前面的定义为 bean 赋值，这种赋值方式达到了反向控制的目的。
+
+通过 DI 这种形式，代码更简洁，对象的解偶程度更高。对象不需要自己管理依赖，写 UT 更简单，测试效率更高。
+
+##### Constructor-based Dependency Injection
+
+基于 构造函数 的 DI 是通过容器调用带参构造函数实现的，与之类似的是带参数的工厂方法，效果上两者等价。下面是一个只能通过构造函数实现注入的例子：
+
+```java
+public class SimpleMovieLister {
+
+    // the SimpleMovieLister has a dependency on a MovieFinder
+    private MovieFinder movieFinder;
+
+    // a constructor so that the Spring container can inject a MovieFinder
+    public SimpleMovieLister(MovieFinder movieFinder) {
+        this.movieFinder = movieFinder;
+    }
+
+    // business logic that actually uses the injected MovieFinder is omitted...
+}
+```
+
+##### Constructor Argument Resolution
+
+构造函数参数类型通过参数类型解析。一般情况下容器会根据构造器中参数顺序为他填充对应的值。示例如下：
+
+```java
+package x.y;
+
+public class ThingOne {
+
+    public ThingOne(ThingTwo thingTwo, ThingThree thingThree) {
+        // ...
+    }
+}
+```
+
+假设 ThingTwo 和 ThingThree 之间没有继承关系，你可以直接使用下面的 xml 配置做初始化，不需要设置 index 或者类型等参数。
+
+```xml
+<beans>
+    <bean id="beanOne" class="x.y.ThingOne">
+        <constructor-arg ref="beanTwo"/>
+        <constructor-arg ref="beanThree"/>
+    </bean>
+
+    <bean id="beanTwo" class="x.y.ThingTwo"/>
+
+    <bean id="beanThree" class="x.y.ThingThree"/>
+</beans>
+```
+
+当匹配内容是其他 bean 时，type 是确定的，那么匹配可以正确执行。但当匹配简单类型时，比如 <value>true</value>，Spring 不能确定值的类型，匹配就不能完成了。看下面的例子：
+
+```java
+package examples;
+
+public class ExampleBean {
+
+    // Number of years to calculate the Ultimate Answer
+    private int years;
+
+    // The Answer to Life, the Universe, and Everything
+    private String ultimateAnswer;
+
+    public ExampleBean(int years, String ultimateAnswer) {
+        this.years = years;
+        this.ultimateAnswer = ultimateAnswer;
+    }
+}
+```
+
+##### Constructor argument type matching
+
+上面的例子中，Spring 可以通过参数类型来做匹配
+
+```xml
+<bean id="exampleBean" class="examples.ExampleBean">
+    <constructor-arg type="int" value="7500000"/>
+    <constructor-arg type="java.lang.String" value="42"/>
+</bean>
+```
+
+##### Constructor argument index
+
+你也可以通过 index 来指定匹配
+
+```xml
+<bean id="exampleBean" class="examples.ExampleBean">
+    <constructor-arg index="0" value="7500000"/>
+    <constructor-arg index="1" value="42"/>
+</bean>
+```
+
+##### Constructor argument name
+
+你还可以通过参数名称来消除歧义
+
+```xml
+<bean id="exampleBean" class="examples.ExampleBean">
+    <constructor-arg name="years" value="7500000"/>
+    <constructor-arg name="ultimateAnswer" value="42"/>
+</bean>
+```
+
+这种用法需要你在编译代码的时候将 debug flag 设置为 true。如果不能的话，你可以用 JDK 的 `@ConstructorProperties` 注释实现同样的功能
+
+```java
+package examples;
+
+public class ExampleBean {
+
+    // Fields omitted
+
+    @ConstructorProperties({"years", "ultimateAnswer"})
+    public ExampleBean(int years, String ultimateAnswer) {
+        this.years = years;
+        this.ultimateAnswer = ultimateAnswer;
+    }
+}
+```
+
+#### Setter-based Dependency Injection
+
+基于 Setter 的 DI 注入就是容器在调用无参构造或者静态工厂方法创建对象之后，调用 setter 方法对属性设值。下面是一个只能通过 setter 进行注入的例子：
+
+```java
+public class SimpleMovieLister {
+
+    // the SimpleMovieLister has a dependency on the MovieFinder
+    private MovieFinder movieFinder;
+
+    // a setter method so that the Spring container can inject a MovieFinder
+    public void setMovieFinder(MovieFinder movieFinder) {
+        this.movieFinder = movieFinder;
+    }
+
+    // business logic that actually uses the injected MovieFinder is omitted...
+}
+```
+
+`ApplicationContext` 支持基于构造函数和 setter 的注入，也支持两者混合的注入方式。常见的做法是通过 xml, component 注解 或者在带有 @Configuration 注解的 class 中 添加带 @Bean 注解的方法。
+
+PS: 构造器注入 Vs Setter 注入， 对必要属性，通过构造器式注入实现，如果是一些可选属性，通过 setter 注入
+
+##### Dependency Resolution Process
