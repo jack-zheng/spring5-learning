@@ -419,7 +419,7 @@ The recommended way to find out about the actual runtime type of a particular be
 
 通过 DI 这种形式，代码更简洁，对象的解偶程度更高。对象不需要自己管理依赖，写 UT 更简单，测试效率更高。
 
-##### Constructor-based Dependency Injection
+###### Constructor-based Dependency Injection
 
 基于 构造函数 的 DI 是通过容器调用带参构造函数实现的，与之类似的是带参数的工厂方法，效果上两者等价。下面是一个只能通过构造函数实现注入的例子：
 
@@ -488,7 +488,7 @@ public class ExampleBean {
 }
 ```
 
-##### Constructor argument type matching
+###### Constructor argument type matching
 
 上面的例子中，Spring 可以通过参数类型来做匹配
 
@@ -499,7 +499,7 @@ public class ExampleBean {
 </bean>
 ```
 
-##### Constructor argument index
+###### Constructor argument index
 
 你也可以通过 index 来指定匹配
 
@@ -510,7 +510,7 @@ public class ExampleBean {
 </bean>
 ```
 
-##### Constructor argument name
+###### Constructor argument name
 
 你还可以通过参数名称来消除歧义
 
@@ -538,7 +538,7 @@ public class ExampleBean {
 }
 ```
 
-#### Setter-based Dependency Injection
+##### Setter-based Dependency Injection
 
 基于 Setter 的 DI 注入就是容器在调用无参构造或者静态工厂方法创建对象之后，调用 setter 方法对属性设值。下面是一个只能通过 setter 进行注入的例子：
 
@@ -561,4 +561,139 @@ public class SimpleMovieLister {
 
 PS: 构造器注入 Vs Setter 注入， 对必要属性，通过构造器式注入实现，如果是一些可选属性，通过 setter 注入
 
-##### Dependency Resolution Process
+###### Dependency Resolution Process
+
+容器通过一下方式解决依赖问题：
+
+* `ApplicationContext` 在创建是会携带所有 bean 的配置信息，配置信息可以是 xml 形式，也可以是 Java code 或者注解
+* 对 bean 来说，他的依赖关系在 properties 配置，构造函数参数或者静态工厂方法中得以体现
+* property 和 构造函数参数对应一组值定义或者其他 bean 的引用
+* property 和构造函数参数都是由 Spring 从 String type 转化而来的
+
+Spring 容器会在容器创建的时候做配置检测。但是 bean 的属性只有在 bean 真正被创建出来的时候才会被设置。单列模式或者 pre-instantiated 的 bean 会在容器创建的时候一起被创建出来，这些 scope 都是通过 Bean Scopes 定义的。否则，bean 只有在被访问的时候才会创建。创建一个 bean 时会潜在的将他所有关联的 bean 都创建出来。
+
+PS: 循环依赖，这种情况下可以用 setter 注入来绕过
+
+通常来说你可以完全信任 Spring, 他会帮你检测配置问题，比如配置了不存在的 bean 或者 循环依赖什么的，它都能帮你检测出来。Spring 会尽可能晚的设置属性，加载 dependencies, 这就可能在容器启动以后，加载 bean 的时候抛一些 exception，比如属性缺失或者属性不合法等。这就是问什么 Spring 默认会把 bean 都设置成 pre-instantiate, 在创建容器的时候将他们都一并创建好，你虽然会牺牲一些启动时间和内存，但是可以提前发现问题。
+
+如果没有循环依赖问题，那么当一个 bean 被实例化的时候，他所依赖的 bean 也会被实例化，效果上和调用 bean 的构造函数等同。
+
+##### Examples of Dependency Injection
+
+以下是一个基于 xml 的 setter DI 的例子
+
+```xml
+<bean id="exampleBean" class="examples.ExampleBean">
+    <!-- setter injection using the nested ref element -->
+    <property name="beanOne">
+        <ref bean="anotherExampleBean"/>
+    </property>
+
+    <!-- setter injection using the neater ref attribute -->
+    <property name="beanTwo" ref="yetAnotherBean"/>
+    <property name="integerProperty" value="1"/>
+</bean>
+
+<bean id="anotherExampleBean" class="examples.AnotherBean"/>
+<bean id="yetAnotherBean" class="examples.YetAnotherBean"/>
+```
+
+```java
+public class ExampleBean {
+
+    private AnotherBean beanOne;
+
+    private YetAnotherBean beanTwo;
+
+    private int i;
+
+    public void setBeanOne(AnotherBean beanOne) {
+        this.beanOne = beanOne;
+    }
+
+    public void setBeanTwo(YetAnotherBean beanTwo) {
+        this.beanTwo = beanTwo;
+    }
+
+    public void setIntegerProperty(int i) {
+        this.i = i;
+    }
+}
+```
+
+上面的例子里，我们通过 setter 来匹配 ExampleBean 的的属性，下面的例子，我们通过构造函数来配置
+
+```xml
+<bean id="exampleBean" class="examples.ExampleBean">
+    <!-- constructor injection using the nested ref element -->
+    <constructor-arg>
+        <ref bean="anotherExampleBean"/>
+    </constructor-arg>
+
+    <!-- constructor injection using the neater ref attribute -->
+    <constructor-arg ref="yetAnotherBean"/>
+
+    <constructor-arg type="int" value="1"/>
+</bean>
+
+<bean id="anotherExampleBean" class="examples.AnotherBean"/>
+<bean id="yetAnotherBean" class="examples.YetAnotherBean"/>
+```
+
+```java
+public class ExampleBean {
+
+    private AnotherBean beanOne;
+
+    private YetAnotherBean beanTwo;
+
+    private int i;
+
+    public ExampleBean(
+        AnotherBean anotherBean, YetAnotherBean yetAnotherBean, int i) {
+        this.beanOne = anotherBean;
+        this.beanTwo = yetAnotherBean;
+        this.i = i;
+    }
+}
+```
+
+下面是另一个变种，通过静态工厂方法返回实例
+
+```xml
+<bean id="exampleBean" class="examples.ExampleBean" factory-method="createInstance">
+    <constructor-arg ref="anotherExampleBean"/>
+    <constructor-arg ref="yetAnotherBean"/>
+    <constructor-arg value="1"/>
+</bean>
+
+<bean id="anotherExampleBean" class="examples.AnotherBean"/>
+<bean id="yetAnotherBean" class="examples.YetAnotherBean"/>
+```
+
+```java
+public class ExampleBean {
+
+    // a private constructor
+    private ExampleBean(...) {
+        ...
+    }
+
+    // a static factory method; the arguments to this method can be
+    // considered the dependencies of the bean that is returned,
+    // regardless of how those arguments are actually used.
+    public static ExampleBean createInstance (
+        AnotherBean anotherBean, YetAnotherBean yetAnotherBean, int i) {
+
+        ExampleBean eb = new ExampleBean (...);
+        // some other operations...
+        return eb;
+    }
+}
+```
+
+静态工厂方法和构造函数一样，使用的是 `<constructor-arg/>` 的 tag, 返回值和工厂类可以是不同类型。
+
+##### 练习
+
+将上面列举的三种类型的配置方法实践以下

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+        https://www.springframework.org/schema/beans/spring-beans.xsd">
+
+    <bean id="beanWithSetter" class="c1_4_1.pojo.ExampleBeanWithSetter">
+        <!-- setter injection using the nested ref element -->
+        <property name="beanOne">
+            <ref bean="anotherExampleBean"/>
+        </property>
+
+        <!-- setter injection using the neater ref attribute -->
+        <property name="beanTwo" ref="yetAnotherBean"/>
+        <property name="integerProperty" value="1"/>
+    </bean>
+
+    <bean id="anotherExampleBean" class="c1_4_1.pojo.AnotherBean">
+        <property name="name" value="anotherBean"/>
+    </bean>
+
+    <bean id="yetAnotherBean" class="c1_4_1.pojo.YetAnotherBean">
+        <property name="name" value="yetAnotherBean"/>
+    </bean>
+</beans>
