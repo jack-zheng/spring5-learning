@@ -697,3 +697,60 @@ public class ExampleBean {
 ##### 练习
 
 将上面列举的三种类型的配置方法实践以下
+
+#### 1.4.2. Dependencies and Configuration in Detail
+
+如前述，你可以为 bean 属性或构造函数引入对其他 bean 的依赖，XML 中通过 `<property/>` 和 `<constructor-arg/>` 就可以配置。
+
+##### Straight Values (Primitives, Strings, and so on)
+
+Spring 的 类型转化服务会把 `<property/>` 属性中的 String 转化为对应的参数，示例如下：
+
+```xml
+<bean id="myDataSource" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
+    <!-- results in a setDriverClassName(String) call -->
+    <property name="driverClassName" value="com.mysql.jdbc.Driver"/>
+    <property name="url" value="jdbc:mysql://localhost:3306/mydb"/>
+    <property name="username" value="root"/>
+    <property name="password" value="misterkaoli"/>
+</bean>
+```
+
+下面是通过 `p-namespace` 的简写方式, `p-namespace` 其实就是省略了嵌套的 property tag, 将属性写在 bean 声明的 tag 中
+
+```xml
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:p="http://www.springframework.org/schema/p"
+    xsi:schemaLocation="http://www.springframework.org/schema/beans
+    https://www.springframework.org/schema/beans/spring-beans.xsd">
+
+    <bean id="myDataSource" class="org.apache.commons.dbcp.BasicDataSource"
+        destroy-method="close"
+        p:driverClassName="com.mysql.jdbc.Driver"
+        p:url="jdbc:mysql://localhost:3306/mydb"
+        p:username="root"
+        p:password="misterkaoli"/>
+
+</beans>
+```
+
+上面的配置很简明，但是有一个缺点，在没有使用 IDE 的情况下，如果有什么拼写错误，那么你只能在运行时发现问题，对于这种情况，你可以使用 `java.util.Properties` 使得容器启动时就暴露问题。
+
+```xml
+<bean id="mappings"
+    class="org.springframework.context.support.PropertySourcesPlaceholderConfigurer">
+
+    <!-- typed as a java.util.Properties -->
+    <property name="properties">
+        <value>
+            jdbc.driver.className=com.mysql.jdbc.Driver
+            jdbc.url=jdbc:mysql://localhost:3306/mydb
+        </value>
+    </property>
+</bean>
+```
+
+上面这种书写方式，Spring 会使用 JavaBeans 的 PropertyEditor 机制将 value 中的值转化为 `java.util.Properties` 对象。这种方式是 Spring team 推荐的使用方式。
+
+#### The idref element
