@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+        https://www.springframework.org/schema/beans/spring-beans.xsd">
+
+    <bean id="collectionsContainer" class="c1_4_2.pojo.CollectionsContainer">
+        <!-- results in a setAdminEmails(java.util.Properties) call -->
+        <property name="adminEmails">
+            <props>
+                <prop key="administrator">administrator@example.org</prop>
+                <prop key="support">support@example.org</prop>
+                <prop key="development">development@example.org</prop>
+            </props>
+        </property>
+        <!-- results in a setSomeList(java.util.List) call -->
+        <property name="someList">
+            <list>
+                <value>a list element followed by a reference</value>
+                <!--                <ref bean="myDataSource" />-->
+            </list>
+        </property>
+        <!-- results in a setSomeMap(java.util.Map) call -->
+        <property name="someMap">
+            <map>
+                <entry key="an entry" value="just some string"/>
+                <!--                <entry key ="a ref" value-ref="myDataSource"/>-->
+            </map>
+        </property>
+        <!-- results in a setSomeSet(java.util.Set) call -->
+        <property name="someSet">
+            <set>
+                <value>just some string</value>
+                <!--                <ref bean="myDataSource" />-->
+            </set>
+        </property>
+
+        <!-- list of reference type -->
+        <property name="targetBeans">
+            <list>
+                <ref bean="myTargetBean" />
+            </list>
+        </property>
+    </bean>
+
+    <bean id="myTargetBean" class="c1_4_2.pojo.TargetBean">
+        <property name="age" value="123"/>
+    </bean>
+</beans>

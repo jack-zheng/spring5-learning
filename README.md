@@ -702,7 +702,7 @@ public class ExampleBean {
 
 如前述，你可以为 bean 属性或构造函数引入对其他 bean 的依赖，XML 中通过 `<property/>` 和 `<constructor-arg/>` 就可以配置。
 
-##### Straight Values (Primitives, Strings, and so on)
+##### Straigh Values (Primitives, Strings, and so on)
 
 Spring 的 类型转化服务会把 `<property/>` 属性中的 String 转化为对应的参数，示例如下：
 
@@ -753,4 +753,333 @@ Spring 的 类型转化服务会把 `<property/>` 属性中的 String 转化为�
 
 上面这种书写方式，Spring 会使用 JavaBeans 的 PropertyEditor 机制将 value 中的值转化为 `java.util.Properties` 对象。这种方式是 Spring team 推荐的使用方式。
 
-#### The idref element
+##### The idref element
+
+> `ref` Vs `idref`: 从实验结果来看，这额 idref 标签实在是很具有迷惑性，我原以为，他会给外部调用 bean 提供一个 其他 bean 的引用，并检测是否存在，没想到他在效果上只相当于传入一个 String... 可能是正如他在段末说的，他主要用在 AOP interceptor 吧，不然我真的感觉不出来他的价值
+
+`idref` 标签是带有 验错 机制的 id 使用方式
+
+```xml
+<bean id="theTargetBean" class="..."/>
+
+<bean id="theClientBean" class="...">
+    <property name="targetName">
+        <idref bean="theTargetBean"/>
+    </property>
+</bean>
+```
+
+上面的代码段和下面的功能上没有区别
+
+```xml
+<bean id="theTargetBean" class="..." />
+
+<bean id="client" class="...">
+    <property name="targetName" value="theTargetBean"/>
+</bean>
+```
+
+`idref` 的方式要比后一种好，它会在容器启动时就检测关联的 bean 是否存在，而第二种方式如果关联的是 bean, 那么如果有什么错误，我们只能到容器部署完了，调用到它的时候才能发现。
+
+`idref` 结合 AOP interceptor 的 ProxyFactoryBean 使用是，价值才被体现出来，使用它可以防止在 interceptor id 中的拼写错误。
+
+##### References to Other Beans (Collaborators)
+
+`ref` 是 `<constructor-arg/>` 和 `<property/>` 的最后一个属性，通过他你可以把 bean 关联到属性。外层 bean 会在调用 set 前完成初始化工作。所有的引用基本上都是对其他对象的引用，Scoping 和 validation 取决于你是否指定了 id 或者 name。
+
+`ref` 是内联 bean 的最常见手段
+
+```xml
+<ref bean="someBean"/>
+```
+
+通过 `parent` 属性你可以关联到一个父类容器中的 bean。这种使用方式可以用在有继承关系的容器中，在子容器中包装一个父容器的 bean 做 proxy
+
+```xml
+<!-- in the parent context -->
+<bean id="accountService" class="com.something.SimpleAccountService">
+    <!-- insert dependencies as required as here -->
+</bean>
+
+<!-- in the child (descendant) context -->
+<bean id="accountService" <!-- bean name is the same as the parent bean -->
+    class="org.springframework.aop.framework.ProxyFactoryBean">
+    <property name="target">
+        <ref parent="accountService"/> <!-- notice how we refer to the parent bean -->
+    </property>
+    <!-- insert other configuration and dependencies as required here -->
+</bean>
+```
+
+##### Inner Beans
+
+> 实验下来，暂时只有静态内部可以同构这种方式实例化，如果是非静态的，会抛异常。话说我需要把 Thinking in java 的 inner classes 章节看一下之后在看看这部分内容，看能不能有更深的理解
+
+PS: 非静态的用 Outer$InnerBean 的方式就可以了, 静态也可以这么用，也可以直接用全路径点出来，区别是，非静态的时候需要有一个构造函数，指向外部类, 因为非静态情况下，内部类是依赖于外部类存在的，需要指定也合情合理
+
+通过在 `<property/>` 和 `<constructor-arg/>` 下定义 `<bean/>` 元素可以达到 inner bean 的效果, as the following example shows:
+
+```xml
+<bean id="outer" class="...">
+    <!-- instead of using a reference to a target bean, simply define the target bean inline -->
+    <property name="target">
+        <bean class="com.example.Person"> <!-- this is the inner bean -->
+            <property name="name" value="Fiona Apple"/>
+            <property name="age" value="25"/>
+        </bean>
+    </property>
+</bean>
+```
+
+Inner bean 定义不需要提供 id 或 name, 容器也忽略 inner bean 的 scope，应为他默认是和 outer bean 一起创建的，其他 bean 防伪 inner bean 是受限的。
+
+Inner bean 一般和外层 bean 同生同死。
+
+##### Collections
+
+元素 `<list/>`, `<set/>`, `<map/>`, 和 `<props/>` 对应 Java Collection 类型里的 List, Set, Map, and Properties 实例如下：
+
+```xml
+<bean id="moreComplexObject" class="example.ComplexObject">
+    <!-- results in a setAdminEmails(java.util.Properties) call -->
+    <property name="adminEmails">
+        <props>
+            <prop key="administrator">administrator@example.org</prop>
+            <prop key="support">support@example.org</prop>
+            <prop key="development">development@example.org</prop>
+        </props>
+    </property>
+    <!-- results in a setSomeList(java.util.List) call -->
+    <property name="someList">
+        <list>
+            <value>a list element followed by a reference</value>
+            <ref bean="myDataSource" />
+        </list>
+    </property>
+    <!-- results in a setSomeMap(java.util.Map) call -->
+    <property name="someMap">
+        <map>
+            <entry key="an entry" value="just some string"/>
+            <entry key ="a ref" value-ref="myDataSource"/>
+        </map>
+    </property>
+    <!-- results in a setSomeSet(java.util.Set) call -->
+    <property name="someSet">
+        <set>
+            <value>just some string</value>
+            <ref bean="myDataSource" />
+        </set>
+    </property>
+</bean>
+```
+
+集合中的值可以是如下类型中的任意一个
+
+`bean | ref | idref | list | set | map | props | value | null`
+
+##### Collection Merging
+
+> parent bean 带有的 abstract=true 属性和 Java 的 abstract 类不太一样，这个 bean 定义并不需要和类中的抽象类一一对应，是一个单独存在的概念。把它看成抽出来的可重用属性即可。
+
+Spring 容器中集合元素 `<list/>`, `<set/>`, `<map/>`, 和 `<props/>` 可以在子类元素中实现继承和重载。即子类集合可以选择是否整合父类元素的内容。
+
+This section on merging discusses the parent-child bean mechanism. Readers unfamiliar with parent and child bean definitions may wish to read the relevant section before continuing.
+
+The following example demonstrates collection merging:
+
+```xml
+<beans>
+    <bean id="parent" abstract="true" class="example.ComplexObject">
+        <property name="adminEmails">
+            <props>
+                <prop key="administrator">administrator@example.com</prop>
+                <prop key="support">support@example.com</prop>
+            </props>
+        </property>
+    </bean>
+    <bean id="child" parent="parent">
+        <property name="adminEmails">
+            <!-- the merge is specified on the child collection definition -->
+            <props merge="true">
+                <prop key="sales">sales@example.com</prop>
+                <prop key="support">support@example.co.uk</prop>
+            </props>
+        </property>
+    </bean>
+<beans>
+```
+
+child bean 中的 `<props/>` 的 `merge=true` 会指定继承父类集合的值。合并后结果如下:
+
+```txt
+administrator=administrator@example.com
+sales=sales@example.com
+support=support@example.co.uk
+```
+
+子集合会拿到所有的父集合值，如果和自己的值有重复，则用自己的替代。处理 list 时比较特别一些，应为他是有序的，这种情况下，容器先拿到所有父集合的值，然后再将子集合的值拼接上去。
+
+##### Limitations of Collection Merging
+
+merge 是类型必须是一致的，不一致的情况下，容器会抛出异常。
+
+##### Strongly-typed collection
+
+从 Java 5 开始，开始支持范型。Spring 也支持这种用法。你可以在配置集合时指定类型，这样 Spring 在帮你注入时就会进行类型转化了，示例如下：
+
+```java
+public class SomeClass {
+
+    private Map<String, Float> accounts;
+
+    public void setAccounts(Map<String, Float> accounts) {
+        this.accounts = accounts;
+    }
+}
+```
+
+```xml
+<beans>
+    <bean id="something" class="x.y.SomeClass">
+        <property name="accounts">
+            <map>
+                <entry key="one" value="9.99"/>
+                <entry key="two" value="2.75"/>
+                <entry key="six" value="3.99"/>
+            </map>
+        </property>
+    </bean>
+</beans>
+```
+
+bean 中 map 声明为 <String, Float> 类型，容器在注入时会将 value 位置上的 String 转化为对应的 Float 类型。
+
+##### Null and Empty String Values
+
+设置空字串：
+
+```xml
+<bean class="ExampleBean">
+    <property name="email" value=""/>
+</bean>
+```
+
+上面的配置等价于 `exampleBean.setEmail("");`
+
+如果你想要设置 nul, 可以想下面这么操作
+
+```xml
+<bean class="ExampleBean">
+    <property name="email">
+        <null/>
+    </property>
+</bean>
+```
+
+效果上，等价于 `exampleBean.setEmail(null);`
+
+##### XML Shortcut with the p-namespace
+
+`p-namespace` 是 `<property/>` 标签的一个简写形式，想要用它，你需要在文件头部加入 Schema 定义 `xmlns:p="http://www.springframework.org/schema/p"` 即可。使用时，你不需要嵌套使用了，直接将属性通过 `p:xxx` 的形式接在 bean tag 里面就行了
+
+```xml
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:p="http://www.springframework.org/schema/p"
+    xsi:schemaLocation="http://www.springframework.org/schema/beans
+        https://www.springframework.org/schema/beans/spring-beans.xsd">
+
+    <bean name="classic" class="com.example.ExampleBean">
+        <property name="email" value="someone@somewhere.com"/>
+    </bean>
+
+    <bean name="p-namespace" class="com.example.ExampleBean"
+        p:email="someone@somewhere.com"/>
+</beans>
+```
+
+下面是一个更复杂的 p-namespace 的例子
+
+```xml
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:p="http://www.springframework.org/schema/p"
+    xsi:schemaLocation="http://www.springframework.org/schema/beans
+        https://www.springframework.org/schema/beans/spring-beans.xsd">
+
+    <bean name="john-classic" class="com.example.Person">
+        <property name="name" value="John Doe"/>
+        <property name="spouse" ref="jane"/>
+    </bean>
+
+    <bean name="john-modern"
+        class="com.example.Person"
+        p:name="John Doe"
+        p:spouse-ref="jane"/>
+
+    <bean name="jane" class="com.example.Person">
+        <property name="name" value="Jane Doe"/>
+    </bean>
+</beans>
+```
+
+如果 property 中有关联到其他 bean 的，你可以用 `p:属性-ref` 的形式，属性后加 `-ref` 指代出来。
+
+##### XML Shortcut with the c-namespace
+
+`c-namespace` 是, `constructor-arg` 的简写形式，从 Spring 3.1 开始引入，示例如下：
+
+```xml
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:c="http://www.springframework.org/schema/c"
+    xsi:schemaLocation="http://www.springframework.org/schema/beans
+        https://www.springframework.org/schema/beans/spring-beans.xsd">
+
+    <bean id="beanTwo" class="x.y.ThingTwo"/>
+    <bean id="beanThree" class="x.y.ThingThree"/>
+
+    <!-- traditional declaration with optional argument names -->
+    <bean id="beanOne" class="x.y.ThingOne">
+        <constructor-arg name="thingTwo" ref="beanTwo"/>
+        <constructor-arg name="thingThree" ref="beanThree"/>
+        <constructor-arg name="email" value="something@somewhere.com"/>
+    </bean>
+
+    <!-- c-namespace declaration with argument names -->
+    <bean id="beanOne" class="x.y.ThingOne" c:thingTwo-ref="beanTwo"
+        c:thingThree-ref="beanThree" c:email="something@somewhere.com"/>
+
+</beans>
+```
+
+和 p-namespace 一样，如果是引用类型，在属性后面加 `-ref` 后缀即可。
+
+一些很少见的情况下，如果编译时没开 debug information 选项，那么他就没有属性名给你引用了，你可以使用如下方式
+
+```xml
+<!-- c-namespace index declaration -->
+<bean id="beanOne" class="x.y.ThingOne" c:_0-ref="beanTwo" c:_1-ref="beanThree" c:_2="something@somewhere.com"/>
+```
+
+从实践上看，内嵌构造函数的效率很高，所以，如非必要，还是推荐嵌套类型的。
+
+##### Compound Property Names
+
+> 这种用法如果和 p-namespace 结合会出问题，说到底，他还是用的 setter 方法设置值，据测试，嵌套的 property 会比 p 标签里的先执行，会出 NPE 问题。
+> 所以可以用 c 标签，反正一句话就是确保 set property 之前，级联属性已经生成出来了就行
+
+级联式命名
+
+```xml
+<bean id="something" class="things.ThingOne">
+    <property name="fred.bob.sammy" value="123" />
+</bean>
+```
+
+如果 ThingOne 这个 bean 有个 fred 属性，fred 下又有 bob 属性，之下又有 sammy 属性，那么你可以用上面的形式命名，但是如果中间某一个环节是 null, 比如 bob 没有初始化，是 nul，就会抛 NPE。
+
+#### 练习
+
+将这一节下面的例子全都实践一边，父类容器的那个可以先放放，还没学到。
+
